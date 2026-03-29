@@ -1,0 +1,8 @@
+# Requirements for CDC Demo Scripts
+# Data Generator
+psycopg2-binary==2.9.9
+Faker==22.0.0
+
+# Monitoring Script
+kafka-python==2.0.2
+requests==2.31.0

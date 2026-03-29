@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚀 CDC Dashboard - Real-time Event Monitor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        body {
+            background: #ffffff;
+            min-height: 100vh;
+        }
+
+        .glass-card {
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+        }
+        
+        .event-card {
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes pulse-green {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+            50% { box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
+        }
+        
+        .pulse-live {
+            animation: pulse-green 2s infinite;
+        }
+        
+        .stat-value {
+            color: #1f2937;
+        }
+        
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: #f3f4f6;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 3px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.2s;
+        }
+
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: auto;
+            padding: 0;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 90vh;
+            overflow: hidden;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            animation: slideUp 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .event-card:hover {
+            cursor: pointer;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            transition: all 0.2s;
+        }
+    </style>
+</head>
+<body class="text-gray-900">
+    <!-- Header -->
+    <header class="glass-card border-b sticky top-0 z-50">
+        <div class="container mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <div class="text-3xl">🚀</div>
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-900">
+                            CDC Dashboard
+                        </h1>
+                        <p class="text-sm text-gray-600">Real-time Change Data Capture Monitor</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div id="connectionStatus" class="flex items-center space-x-2 px-4 py-2 rounded-full glass-card">
+                        <div class="w-3 h-3 rounded-full bg-yellow-500" id="statusDot"></div>
+                        <span class="text-sm" id="statusText">Connecting...</span>
+                    </div>
+                    <div class="text-sm text-gray-600">
+                        <span id="currentTime"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-6 py-8">
+        <!-- Stats Grid -->
+        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-8">
+            <!-- Total Events -->
+            <div class="glass-card rounded-xl p-6">
+                <div class="text-gray-600 text-sm mb-2">Total Events</div>
+                <div class="text-3xl font-bold stat-value" id="totalEvents">0</div>
+                <div class="text-xs text-gray-500 mt-1">
+                    <span id="eventsPerSec">0.00</span> events/sec
+                </div>
+            </div>
+            
+            <!-- Creates -->
+            <div class="glass-card rounded-xl p-6 border-l-4 border-green-500">
+                <div class="text-gray-600 text-sm mb-2">➕ Creates</div>
+                <div class="text-3xl font-bold text-green-600" id="creates">0</div>
+            </div>
+
+            <!-- Updates -->
+            <div class="glass-card rounded-xl p-6 border-l-4 border-blue-500">
+                <div class="text-gray-600 text-sm mb-2">✏️ Updates</div>
+                <div class="text-3xl font-bold text-blue-600" id="updates">0</div>
+            </div>
+
+            <!-- Deletes -->
+            <div class="glass-card rounded-xl p-6 border-l-4 border-red-500">
+                <div class="text-gray-600 text-sm mb-2">❌ Deletes</div>
+                <div class="text-3xl font-bold text-red-600" id="deletes">0</div>
+            </div>
+
+            <!-- Reads -->
+            <div class="glass-card rounded-xl p-6 border-l-4 border-purple-500">
+                <div class="text-gray-600 text-sm mb-2">📖 Reads</div>
+                <div class="text-3xl font-bold text-purple-600" id="reads">0</div>
+            </div>
+
+            <!-- Uptime -->
+            <div class="glass-card rounded-xl p-6 border-l-4 border-yellow-500">
+                <div class="text-gray-600 text-sm mb-2">⏱️ Uptime</div>
+                <div class="text-xl font-bold text-yellow-600" id="uptime">00:00:00</div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Chart Section -->
+            <div class="lg:col-span-2 glass-card rounded-xl p-6">
+                <h2 class="text-xl font-semibold mb-4 flex items-center">
+                    <span class="mr-2">📊</span> Events by Table
+                </h2>
+                <div class="h-64">
+                    <canvas id="tableChart"></canvas>
+                </div>
+            </div>
+            
+            <!-- Operation Distribution -->
+            <div class="glass-card rounded-xl p-6">
+                <h2 class="text-xl font-semibold mb-4 flex items-center">
+                    <span class="mr-2">🎯</span> Operation Types
+                </h2>
+                <div class="h-64">
+                    <canvas id="operationChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Event Stream -->
+        <div class="mt-8 glass-card rounded-xl p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-semibold flex items-center text-gray-900">
+                    <span class="mr-2">📡</span> Live Event Stream
+                    <span class="ml-3 px-2 py-1 text-xs bg-green-100 text-green-700 border border-green-300 rounded-full pulse-live">
+                        LIVE
+                    </span>
+                </h2>
+                <button onclick="clearEvents()" class="px-4 py-2 text-sm bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition">
+                    Clear Events
+                </button>
+            </div>
+            
+            <div id="eventStream" class="h-96 overflow-y-auto scrollbar-thin space-y-2">
+                <div class="text-center text-gray-600 py-8">
+                    <div class="text-4xl mb-2">👂</div>
+                    <p>Waiting for CDC events...</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Architecture Info -->
+        <div class="mt-8 glass-card rounded-xl p-6">
+            <h2 class="text-xl font-semibold mb-4 flex items-center">
+                <span class="mr-2">🏗️</span> Architecture Overview
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
+                <div class="text-center p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <div class="text-3xl mb-2">🐘</div>
+                    <div class="font-semibold text-gray-900">PostgreSQL</div>
+                    <div class="text-xs text-gray-600">Source Database</div>
+                </div>
+                <div class="text-center text-2xl text-gray-400">→</div>
+                <div class="text-center p-4 bg-orange-50 rounded-lg border border-orange-200">
+                    <div class="text-3xl mb-2">🔄</div>
+                    <div class="font-semibold text-gray-900">Debezium</div>
+                    <div class="text-xs text-gray-600">CDC Connector</div>
+                </div>
+                <div class="text-center text-2xl text-gray-400">→</div>
+                <div class="text-center p-4 bg-green-50 rounded-lg border border-green-200">
+                    <div class="text-3xl mb-2">📨</div>
+                    <div class="font-semibold text-gray-900">Kafka</div>
+                    <div class="text-xs text-gray-600">Event Streaming</div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="text-center py-6 text-gray-600 text-sm border-t border-gray-200 mt-8">
+        <p>🚀 Enterprise CDC Demo | PostgreSQL + Debezium + Kafka</p>
+        <p class="mt-1">Built for YouTube Tutorial - 2026 Implementation</p>
+    </footer>
+
+    <!-- Event Details Modal -->
+    <div id="eventModal" class="modal">
+        <div class="modal-content">
+            <div class="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                <div>
+                    <h2 class="text-xl font-bold text-gray-900 flex items-center">
+                        <span class="mr-3">📋</span> Event Details
+                    </h2>
+                    <p class="text-sm text-gray-600 mt-1" id="modalSubtitle"></p>
+                </div>
+                <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700 text-2xl font-bold p-2 rounded-full hover:bg-gray-200 transition">
+                    ×
+                </button>
+            </div>
+            <div class="p-6 overflow-y-auto" style="max-height: calc(90vh - 140px);">
+                <div id="modalContent" class="font-mono text-sm"></div>
+            </div>
+            <div class="bg-gray-50 px-6 py-4 border-t border-gray-200 flex justify-end">
+                <button onclick="closeModal()" class="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // WebSocket connection
+        let ws;
+        let reconnectAttempts = 0;
+        const maxReconnectAttempts = 10;
+        
+        // Charts
+        let tableChart;
+        let operationChart;
+        
+        // Stats
+        let stats = {
+            totalEvents: 0,
+            creates: 0,
+            updates: 0,
+            deletes: 0,
+            reads: 0,
+            eventsByTable: {},
+            startTime: Date.now()
+        };
+        
+        // Initialize charts
+        function initCharts() {
+            // Table events chart
+            const tableCtx = document.getElementById('tableChart').getContext('2d');
+            tableChart = new Chart(tableCtx, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Events',
+                        data: [],
+                        backgroundColor: [
+                            'rgba(59, 130, 246, 0.8)',
+                            'rgba(139, 92, 246, 0.8)',
+                            'rgba(34, 197, 94, 0.8)',
+                            'rgba(249, 115, 22, 0.8)',
+                            'rgba(236, 72, 153, 0.8)'
+                        ],
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#f3f4f6' },
+                            ticks: { color: '#6b7280' }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#6b7280' }
+                        }
+                    }
+                }
+            });
+            
+            // Operation distribution chart
+            const opCtx = document.getElementById('operationChart').getContext('2d');
+            operationChart = new Chart(opCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Creates', 'Updates', 'Deletes', 'Reads'],
+                    datasets: [{
+                        data: [0, 0, 0, 0],
+                        backgroundColor: [
+                            'rgba(34, 197, 94, 0.8)',
+                            'rgba(59, 130, 246, 0.8)',
+                            'rgba(239, 68, 68, 0.8)',
+                            'rgba(139, 92, 246, 0.8)'
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: '#6b7280' }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Connect WebSocket
+        function connect() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${protocol}//${window.location.host}`);
+            
+            ws.onopen = () => {
+                console.log('WebSocket connected');
+                setConnectionStatus(true);
+                reconnectAttempts = 0;
+            };
+            
+            ws.onclose = () => {
+                console.log('WebSocket disconnected');
+                setConnectionStatus(false);
+                
+                if (reconnectAttempts < maxReconnectAttempts) {
+                    setTimeout(() => {
+                        reconnectAttempts++;
+                        connect();
+                    }, 2000 * reconnectAttempts);
+                }
+            };
+            
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+            
+            ws.onmessage = (event) => {
+                const message = JSON.parse(event.data);
+                
+                if (message.type === 'stats') {
+                    updateStats(message.data);
+                } else if (message.type === 'event') {
+                    addEvent(message.data);
+                }
+            };
+        }
+        
+        // Set connection status
+        function setConnectionStatus(connected) {
+            const dot = document.getElementById('statusDot');
+            const text = document.getElementById('statusText');
+            
+            if (connected) {
+                dot.className = 'w-3 h-3 rounded-full bg-green-500 pulse-live';
+                text.textContent = 'Connected';
+            } else {
+                dot.className = 'w-3 h-3 rounded-full bg-red-500';
+                text.textContent = 'Disconnected';
+            }
+        }
+        
+        // Update statistics
+        function updateStats(data) {
+            stats = { ...stats, ...data };
+            
+            document.getElementById('totalEvents').textContent = stats.totalEvents.toLocaleString();
+            document.getElementById('creates').textContent = stats.creates.toLocaleString();
+            document.getElementById('updates').textContent = stats.updates.toLocaleString();
+            document.getElementById('deletes').textContent = stats.deletes.toLocaleString();
+            document.getElementById('reads').textContent = stats.reads.toLocaleString();
+            
+            // Calculate events per second
+            const elapsed = (Date.now() - stats.startTime) / 1000;
+            const eps = elapsed > 0 ? (stats.totalEvents / elapsed).toFixed(2) : 0;
+            document.getElementById('eventsPerSec').textContent = eps;
+            
+            // Update charts
+            if (stats.eventsByTable) {
+                tableChart.data.labels = Object.keys(stats.eventsByTable);
+                tableChart.data.datasets[0].data = Object.values(stats.eventsByTable);
+                tableChart.update();
+            }
+            
+            operationChart.data.datasets[0].data = [
+                stats.creates,
+                stats.updates,
+                stats.deletes,
+                stats.reads
+            ];
+            operationChart.update();
+        }
+        
+        // Store events for modal display
+        let eventsList = [];
+
+        // Add event to stream
+        function addEvent(event) {
+            const stream = document.getElementById('eventStream');
+
+            // Store event for later viewing
+            eventsList.unshift(event);
+            if (eventsList.length > 50) {
+                eventsList.pop();
+            }
+
+            // Remove "waiting" message if present
+            if (stream.querySelector('.text-center')) {
+                stream.innerHTML = '';
+            }
+
+            const operationColors = {
+                'c': { bg: 'bg-green-50 border border-green-200', text: 'text-green-700', label: '➕ CREATE' },
+                'u': { bg: 'bg-blue-50 border border-blue-200', text: 'text-blue-700', label: '✏️ UPDATE' },
+                'd': { bg: 'bg-red-50 border border-red-200', text: 'text-red-700', label: '❌ DELETE' },
+                'r': { bg: 'bg-purple-50 border border-purple-200', text: 'text-purple-700', label: '📖 READ' }
+            };
+
+            const op = operationColors[event.operation] || operationColors['r'];
+            const eventIndex = eventsList.length - 1;
+
+            const eventHtml = `
+                <div class="event-card p-4 rounded-lg ${op.bg}" onclick="showEventDetails(${eventIndex})" title="Click to view full event details">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center space-x-3">
+                            <span class="px-2 py-1 rounded text-xs font-semibold ${op.text} bg-white">${op.label}</span>
+                            <span class="font-semibold text-gray-900">${event.table}</span>
+                        </div>
+                        <span class="text-xs text-gray-600">${new Date(event.timestamp).toLocaleTimeString()}</span>
+                    </div>
+                    <div class="text-sm text-gray-700 font-mono overflow-x-auto">
+                        <pre class="text-xs">${formatEventData(event)}</pre>
+                    </div>
+                </div>
+            `;
+
+            stream.insertAdjacentHTML('afterbegin', eventHtml);
+
+            // Keep only last 50 events
+            while (stream.children.length > 50) {
+                stream.removeChild(stream.lastChild);
+            }
+        }
+        
+        // Format event data for display
+        function formatEventData(event) {
+            // For Debezium envelope structure
+            if (event.after || event.before) {
+                const data = event.after || event.before || {};
+                return JSON.stringify(data, null, 2)
+                    .split('\n')
+                    .slice(0, 5)
+                    .join('\n') + (Object.keys(data).length > 3 ? '\n  ...' : '');
+            }
+
+            // Fallback for old format
+            const cleaned = { ...event };
+            delete cleaned.__op;
+            delete cleaned.__table;
+            delete cleaned.__source_ts_ms;
+            delete cleaned.__deleted;
+
+            return JSON.stringify(cleaned, null, 2)
+                .split('\n')
+                .slice(0, 5)
+                .join('\n') + (Object.keys(cleaned).length > 3 ? '\n  ...' : '');
+        }
+        
+        // Show event details in modal
+        function showEventDetails(index) {
+            const event = eventsList[index];
+            if (!event) return;
+
+            const operationLabels = {
+                'c': '➕ CREATE',
+                'u': '✏️ UPDATE',
+                'd': '❌ DELETE',
+                'r': '📖 READ'
+            };
+
+            const opLabel = operationLabels[event.operation] || event.operation;
+            const timestamp = new Date(event.timestamp).toLocaleString();
+
+            document.getElementById('modalSubtitle').textContent =
+                `${opLabel} on ${event.table} at ${timestamp}`;
+
+            let contentHtml = '';
+
+            // Show before/after for Debezium envelope structure
+            if (event.operation === 'u' && event.before && event.after) {
+                // UPDATE - show before and after
+                contentHtml = `
+                    <div class="space-y-4">
+                        <div>
+                            <h3 class="text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                                <span class="bg-red-100 text-red-700 px-2 py-1 rounded text-xs mr-2">BEFORE</span>
+                                Old Values
+                            </h3>
+                            <pre class="bg-red-50 p-4 rounded-lg overflow-x-auto border border-red-200 text-gray-800">${escapeHtml(JSON.stringify(event.before, null, 2))}</pre>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                                <span class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs mr-2">AFTER</span>
+                                New Values
+                            </h3>
+                            <pre class="bg-green-50 p-4 rounded-lg overflow-x-auto border border-green-200 text-gray-800">${escapeHtml(JSON.stringify(event.after, null, 2))}</pre>
+                        </div>
+                        ${event.source ? `
+                        <div>
+                            <h3 class="text-sm font-semibold text-gray-700 mb-2">Source Metadata</h3>
+                            <pre class="bg-gray-50 p-4 rounded-lg overflow-x-auto border border-gray-200 text-gray-600 text-xs">${escapeHtml(JSON.stringify(event.source, null, 2))}</pre>
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+            } else if (event.operation === 'c' && event.after) {
+                // CREATE - show new values
+                contentHtml = `
+                    <div>
+                        <h3 class="text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                            <span class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs mr-2">NEW</span>
+                            Created Values
+                        </h3>
+                        <pre class="bg-green-50 p-4 rounded-lg overflow-x-auto border border-green-200 text-gray-800">${escapeHtml(JSON.stringify(event.after, null, 2))}</pre>
+                    </div>
+                    ${event.source ? `
+                    <div class="mt-4">
+                        <h3 class="text-sm font-semibold text-gray-700 mb-2">Source Metadata</h3>
+                        <pre class="bg-gray-50 p-4 rounded-lg overflow-x-auto border border-gray-200 text-gray-600 text-xs">${escapeHtml(JSON.stringify(event.source, null, 2))}</pre>
+                    </div>
+                    ` : ''}
+                `;
+            } else if (event.operation === 'd' && event.before) {
+                // DELETE - show old values
+                contentHtml = `
+                    <div>
+                        <h3 class="text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                            <span class="bg-red-100 text-red-700 px-2 py-1 rounded text-xs mr-2">DELETED</span>
+                            Removed Values
+                        </h3>
+                        <pre class="bg-red-50 p-4 rounded-lg overflow-x-auto border border-red-200 text-gray-800">${escapeHtml(JSON.stringify(event.before, null, 2))}</pre>
+                    </div>
+                    ${event.source ? `
+                    <div class="mt-4">
+                        <h3 class="text-sm font-semibold text-gray-700 mb-2">Source Metadata</h3>
+                        <pre class="bg-gray-50 p-4 rounded-lg overflow-x-auto border border-gray-200 text-gray-600 text-xs">${escapeHtml(JSON.stringify(event.source, null, 2))}</pre>
+                    </div>
+                    ` : ''}
+                `;
+            } else if (event.after) {
+                // READ or fallback - show current values
+                contentHtml = `
+                    <div>
+                        <h3 class="text-sm font-semibold text-gray-700 mb-2">Current Values</h3>
+                        <pre class="bg-gray-50 p-4 rounded-lg overflow-x-auto border border-gray-200 text-gray-800">${escapeHtml(JSON.stringify(event.after, null, 2))}</pre>
+                    </div>
+                `;
+            } else {
+                // Old format fallback
+                const data = event.data || event;
+                contentHtml = `
+                    <pre class="bg-gray-50 p-4 rounded-lg overflow-x-auto border border-gray-200 text-gray-800">${escapeHtml(JSON.stringify(data, null, 2))}</pre>
+                `;
+            }
+
+            document.getElementById('modalContent').innerHTML = contentHtml;
+            document.getElementById('eventModal').classList.add('active');
+        }
+
+        // Close modal
+        function closeModal() {
+            document.getElementById('eventModal').classList.remove('active');
+        }
+
+        // Escape HTML to prevent XSS
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('eventModal');
+            if (event.target === modal) {
+                closeModal();
+            }
+        };
+
+        // Close modal with Escape key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeModal();
+            }
+        });
+
+        // Clear events
+        function clearEvents() {
+            eventsList = [];
+            document.getElementById('eventStream').innerHTML = `
+                <div class="text-center text-gray-600 py-8">
+                    <div class="text-4xl mb-2">👂</div>
+                    <p>Waiting for CDC events...</p>
+                </div>
+            `;
+        }
+        
+        // Update time
+        function updateTime() {
+            document.getElementById('currentTime').textContent = new Date().toLocaleTimeString();
+            
+            // Update uptime
+            const elapsed = Math.floor((Date.now() - stats.startTime) / 1000);
+            const hours = Math.floor(elapsed / 3600);
+            const minutes = Math.floor((elapsed % 3600) / 60);
+            const seconds = elapsed % 60;
+            document.getElementById('uptime').textContent = 
+                `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            initCharts();
+            connect();
+            setInterval(updateTime, 1000);
+            updateTime();
+        });
+    </script>
+</body>
+</html>

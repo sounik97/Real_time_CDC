@@ -1,0 +1,17 @@
+{
+  "name": "cdc-dashboard",
+  "version": "1.0.0",
+  "description": "Real-time CDC Event Dashboard",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "kafkajs": "^2.2.4",
+    "kafkajs-snappy": "^1.1.0",
+    "ws": "^8.16.0",
+    "cors": "^2.8.5"
+  }
+}
